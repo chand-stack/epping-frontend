@@ -1,0 +1,263 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile Optimization */
+@layer base {
+  /* Ensure minimum touch target sizes */
+  button, 
+  [role="button"], 
+  input[type="button"], 
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve text readability on mobile */
+  body {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Prevent horizontal scrolling */
+  html, body {
+    overflow-x: hidden;
+  }
+  
+  /* Mobile-specific improvements */
+  @media (max-width: 768px) {
+    /* Ensure cards take full width on mobile */
+    .grid > * {
+      min-width: 100%;
+    }
+    
+    /* Improve button spacing on mobile */
+    .space-y-2 > * + * {
+      margin-top: 0.75rem;
+    }
+    
+    /* Better mobile navigation */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    
+    /* Mobile-friendly form inputs */
+    input, textarea, select {
+      min-height: 44px;
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Mobile admin optimizations */
+    .admin-card {
+      margin-bottom: 0.75rem;
+    }
+    
+    /* Mobile table responsiveness */
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Mobile modal improvements */
+    .modal-content {
+      margin: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+    }
+    
+    /* Mobile button groups */
+    .button-group-mobile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    /* Mobile text sizing */
+    .mobile-text-sm {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+    
+    /* Mobile spacing */
+    .mobile-p-2 {
+      padding: 0.5rem;
+    }
+    
+    .mobile-p-3 {
+      padding: 0.75rem;
+    }
+  }
+  
+  /* Tablet optimizations */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    /* Tablet-specific adjustments */
+    .tablet-grid-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .tablet-text-base {
+      font-size: 1rem;
+      line-height: 1.5rem;
+    }
+  }
+}
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 5%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+
+    /* Food Court Main Brand - Neutral */
+    --primary: 0 0% 5%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 5%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 46%;
+
+    --accent: 0 0% 92%;
+    --accent-foreground: 0 0% 5%;
+
+    /* Brand Colors */
+    --ohsmash: 226 44% 36%;        /* #405BA9 - Blue */
+    --ohsmash-foreground: 0 0% 98%;
+
+    --wonder-wings: 12 68% 37%;    /* #AD3712 - Red */
+    --wonder-wings-foreground: 0 0% 98%;
+
+    --okra-green: 107 50% 24%;     /* #335C25 - Green */
+    --okra-green-foreground: 0 0% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 5%;
+
+    --radius: 0.75rem;
+
+    /* Food Court Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(0 0% 5%), hsl(0 0% 15%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 5% / 0.9), hsl(0 0% 15% / 0.8));
+
+    /* Shadows */
+    --shadow-elegant: 0 10px 25px -5px hsl(0 0% 0% / 0.1);
+    --shadow-button: 0 4px 14px 0 hsl(0 0% 0% / 0.1);
+
+    /* Typography */
+    --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 5%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 84%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold;
+  }
+}
+
+@layer components {
+  .btn-hero {
+    @apply inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground px-8 py-4 text-lg font-semibold shadow-md hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg;
+  }
+
+  .btn-brand {
+    @apply inline-flex items-center justify-center rounded-full px-8 py-4 text-lg font-semibold shadow-md transition-all duration-300 hover:scale-105 hover:shadow-lg;
+  }
+
+  .btn-ohsmash {
+    @apply btn-brand bg-ohsmash text-ohsmash-foreground hover:bg-ohsmash/90;
+  }
+
+  .btn-wonder-wings {
+    @apply btn-brand bg-wonder-wings text-wonder-wings-foreground hover:bg-wonder-wings/90;
+  }
+
+  .btn-okra-green {
+    @apply btn-brand bg-okra-green text-okra-green-foreground hover:bg-okra-green/90;
+  }
+
+  .section-padding {
+    @apply px-4 sm:px-6 lg:px-8 py-16 lg:py-24;
+  }
+
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent;
+  }
+}/* Cache bust: Fri Sep 19 03:11:44 BST 2025 */

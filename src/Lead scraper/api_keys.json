@@ -1,0 +1,15 @@
+{
+  "api_keys": {
+    "Account 1": "AIzaSyCG-v8J1nAPOB0ZRQFNSt-rHEHBTqXTzdw",
+    "Account 2": "YOUR_SECOND_API_KEY_HERE",
+    "Account 3": "YOUR_THIRD_API_KEY_HERE",
+    "Account 4": "YOUR_FOURTH_API_KEY_HERE"
+  },
+  "current_key": "Account 1",
+  "key_usage": {
+    "Account 1": 0,
+    "Account 2": 0,
+    "Account 3": 0,
+    "Account 4": 0
+  }
+}

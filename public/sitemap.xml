@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" 
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- Homepage - Highest Priority -->
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://eppingfoodcourt.co.uk/assets/food-court-hero-BY7YhuS5.jpg</image:loc>
+      <image:title>Epping Food Court - Best Takeaway in Epping, Essex</image:title>
+      <image:caption>Epping's premier food court featuring smash burgers, crispy wings & authentic Indian cuisine</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- Menu Pages - High Priority -->
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/ohsmash</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://eppingfoodcourt.co.uk/assets/ohsmash-hero-CefO7dZ9.jpg</image:loc>
+      <image:title>OhSmash - Smash Burgers in Epping, Essex</image:title>
+      <image:caption>Delicious smash burgers packed with flavor in Epping</image:caption>
+    </image:image>
+  </url>
+  
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/wonder-wings</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://eppingfoodcourt.co.uk/assets/wonder-wings-hero-BQtmvGWR.jpg</image:loc>
+      <image:title>Wonder Wings - Chicken Wings in Epping, Essex</image:title>
+      <image:caption>Crispy chicken wings with signature sauces in Epping</image:caption>
+    </image:image>
+  </url>
+  
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/okra-green</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://eppingfoodcourt.co.uk/assets/okra-green-hero-DjbZ1NEW.jpg</image:loc>
+      <image:title>Okra Green - Indian Food in Epping, Essex</image:title>
+      <image:caption>Authentic Indian flavors made fresh in Epping</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- Order Online - High Priority -->
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/order-online</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  
+  <!-- About & Contact - Medium Priority -->
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/about</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://eppingfoodcourt.co.uk/assets/epping-train-station.jpg</image:loc>
+      <image:title>About Epping Food Court</image:title>
+      <image:caption>Learn about Epping Food Court's story and mission</image:caption>
+    </image:image>
+  </url>
+  
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/contact</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://eppingfoodcourt.co.uk/assets/food-variety.jpg</image:loc>
+      <image:title>Contact Epping Food Court</image:title>
+      <image:caption>Get in touch with Epping Food Court for orders and inquiries</image:caption>
+    </image:image>
+  </url>
+  
+  <!-- Cart - Lower Priority -->
+  <url>
+    <loc>https://eppingfoodcourt.co.uk/cart</loc>
+    <lastmod>2025-01-27</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>
