@@ -39,8 +39,9 @@ const OrderKanban: React.FC = () => {
     { id: 'delivered', title: 'Delivered', color: 'bg-green-100', textColor: 'text-green-800' },
   ];
 
-  const loadOrders = () => {
-    setOrders(orderManagementService.getOrders().slice().reverse());
+  const loadOrders = async () => {
+    const fetchedOrders = await orderManagementService.getOrders();
+    setOrders(fetchedOrders.slice().reverse());
   };
 
   const printAllNewOrders = () => {
@@ -143,13 +144,12 @@ const OrderKanban: React.FC = () => {
     setShowAddItem(false);
   };
 
-  const saveOrder = () => {
+  const saveOrder = async () => {
     if (!editingOrder) return;
 
     const total = editForm.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
-    const updatedOrder: OrderStatus = {
-      ...editingOrder,
+    const updatedOrder = {
       customerInfo: {
         name: editForm.customerName,
         phone: editForm.customerPhone,
@@ -160,12 +160,20 @@ const OrderKanban: React.FC = () => {
       orderType: editForm.orderType,
       items: editForm.items,
       total: total,
-      updatedAt: new Date().toISOString()
+      status: editingOrder.status
     };
 
-    (orderManagementService as any).updateOrder(updatedOrder);
-    adminService.updateOrderStatus(editingOrder.id, updatedOrder.status);
-    closeEditModal();
+    try {
+      const orderId = editingOrder._id || editingOrder.id;
+      if (orderId) {
+        await orderManagementService.updateOrder(orderId, updatedOrder);
+        await loadOrders();
+      }
+      closeEditModal();
+    } catch (error) {
+      console.error('Failed to save order:', error);
+      alert('Failed to save order changes');
+    }
   };
 
   useEffect(() => {
@@ -191,17 +199,26 @@ const OrderKanban: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent, newStatus: OrderStatusType) => {
+  const handleDrop = async (e: React.DragEvent, newStatus: OrderStatusType) => {
     e.preventDefault();
     if (draggedOrder) {
-      adminService.updateOrderStatus(draggedOrder, newStatus);
-      setDraggedOrder(null);
+      try {
+        await adminService.updateOrderStatus(draggedOrder, newStatus);
+        await loadOrders();
+        setDraggedOrder(null);
+      } catch (error) {
+        console.error('Failed to update order status:', error);
+      }
     }
   };
 
   const printReceipt = (order: OrderStatus) => {
     const win = window.open('', '_blank', 'width=800,height=900');
     if (!win) return;
+
+    // Get order ID (use _id from MongoDB or fallback to id)
+    const orderId = order._id || order.id || 'N/A';
+    const displayOrderId = orderId.length > 8 ? orderId.slice(-8) : orderId;
 
     type Aggregated = { name: string; quantity: number; price: number };
     const byBrand: Record<string, Aggregated[]> = {};
@@ -252,7 +269,7 @@ const OrderKanban: React.FC = () => {
         <h2>${title}</h2>
         ${brand ? `<div class="brand-header"><strong>Kitchen Team:</strong> ${brand}</div>` : ''}
         <div class="meta muted">
-          <div><strong>Order #${order.id}</strong> • ${new Date(order.createdAt).toLocaleString()}</div>
+          <div><strong>Order #${displayOrderId}</strong> • ${new Date(order.createdAt).toLocaleString()}</div>
           <div>${order.orderType.toUpperCase()} • <span class="pill">${order.customerInfo.name}</span> • ${order.customerInfo.phone}</div>
           ${order.orderType === 'delivery' && order.customerInfo.address ? `<div><strong>Delivery Address:</strong> ${order.customerInfo.address}</div>` : ''}
           ${order.specialInstructions ? `<div><strong>Special Instructions:</strong> ${order.specialInstructions}</div>` : ''}
@@ -324,7 +341,7 @@ const OrderKanban: React.FC = () => {
     win.document.write(`
       <html>
         <head>
-          <title>Order ${order.id} — Print</title>
+          <title>Order ${displayOrderId} — Print</title>
           ${styles}
         </head>
         <body>
@@ -393,23 +410,26 @@ const OrderKanban: React.FC = () => {
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, column.id as OrderStatusType)}
               >
-                {columnOrders.map((order) => (
-                  <Card
-                    key={order.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, order.id)}
-                    className="cursor-move hover:shadow-md transition-shadow"
-                  >
-                    <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                          #{order.id}
-                        </span>
-                        <div className="flex items-center space-x-1 text-xs text-gray-500">
-                          <Clock className="h-3 w-3" />
-                          <span className="hidden sm:inline">{getTimeAgo(order.createdAt)}</span>
+                {columnOrders.map((order) => {
+                  const orderId = order._id || order.id || '';
+                  const displayId = orderId.slice(-8);
+                  return (
+                    <Card
+                      key={orderId}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, orderId)}
+                      className="cursor-move hover:shadow-md transition-shadow"
+                    >
+                      <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
+                            #{displayId}
+                          </span>
+                          <div className="flex items-center space-x-1 text-xs text-gray-500">
+                            <Clock className="h-3 w-3" />
+                            <span className="hidden sm:inline">{getTimeAgo(order.createdAt)}</span>
+                          </div>
                         </div>
-                      </div>
 
                       <div className="space-y-1 sm:space-y-2">
                         <div className="flex items-center space-x-2">
@@ -464,7 +484,8 @@ const OrderKanban: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                );
+              })}
               </div>
             </div>
           );

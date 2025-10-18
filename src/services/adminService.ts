@@ -26,6 +26,18 @@ class AdminService {
   private unsubscribers: Array<() => void> = [];
 
   constructor() {
+    // Initialize with default stats
+    this.cachedStats = {
+      totalRevenue: 0,
+      totalOrders: 0,
+      activeCustomers: 0,
+      averageOrderValue: 0,
+      ordersToday: 0,
+      revenueToday: 0,
+      topItems: [],
+      recentOrders: [],
+      lowStockItems: 0
+    };
     this.startRealTimeUpdates();
   }
 
@@ -36,6 +48,9 @@ class AdminService {
     if (this.cachedStats) {
       callback(this.cachedStats);
     }
+    // Trigger an async update
+    this.notifySubscribers().catch(console.error);
+    
     return () => {
       this.updateCallbacks = this.updateCallbacks.filter(cb => cb !== callback);
     };
@@ -45,17 +60,20 @@ class AdminService {
   private startRealTimeUpdates() {
     if (this.updateInterval) return;
     
+    // Do an initial load
+    this.notifySubscribers().catch(console.error);
+    
     this.updateInterval = setInterval(() => {
       const now = Date.now();
       // Only update every 10 seconds to prevent excessive calculations
       if (now - this.lastUpdate > 10000) {
-        this.notifySubscribers();
+        this.notifySubscribers().catch(console.error);
         this.lastUpdate = now;
       }
     }, 5000); // Check every 5 seconds but only update every 10 seconds
 
     // Also subscribe to underlying services to trigger faster updates when data changes
-    const unSubOrders = () => {};
+    const unSubOrders = orderManagementService.subscribe(() => this.scheduleNotifySoon());
     const unSubMenu = menuService.subscribe(() => this.scheduleNotifySoon());
     const unSubInventory = inventoryService.subscribe(() => this.scheduleNotifySoon());
     this.unsubscribers.push(unSubOrders, unSubMenu, unSubInventory);
@@ -72,9 +90,19 @@ class AdminService {
   }
 
   // Notify all subscribers of updates
-  private notifySubscribers() {
-    this.cachedStats = this.getStats();
-    this.updateCallbacks.forEach(callback => callback(this.cachedStats!));
+  private async notifySubscribers() {
+    try {
+      this.cachedStats = await this.getStats();
+      this.updateCallbacks.forEach(callback => {
+        try {
+          callback(this.cachedStats!);
+        } catch (error) {
+          console.error('Error in admin service callback:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error updating admin stats:', error);
+    }
   }
 
   private notifyScheduled = false;
@@ -83,14 +111,14 @@ class AdminService {
     this.notifyScheduled = true;
     setTimeout(() => {
       this.notifyScheduled = false;
-      this.notifySubscribers();
+      this.notifySubscribers().catch(console.error);
     }, 250); // coalesce rapid changes
   }
 
   // Get comprehensive admin statistics
-  getStats(): AdminStats {
-    const orders = orderManagementService.getOrders();
-    const menuItems = menuService.getAll();
+  async getStats(): Promise<AdminStats> {
+    const orders = await orderManagementService.getOrders();
+    const menuItems = await menuService.fetchAll();
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -150,52 +178,53 @@ class AdminService {
   }
 
   // Update order status and notify subscribers
-  updateOrderStatus(orderId: string, newStatus: string) {
-    orderManagementService.updateOrderStatus(orderId, newStatus);
-    this.notifySubscribers();
+  async updateOrderStatus(orderId: string, newStatus: string) {
+    await orderManagementService.updateOrderStatus(orderId, newStatus);
+    this.scheduleNotifySoon();
   }
 
   // Add new order and notify subscribers
-  addOrder(order: Omit<OrderStatus, 'id' | 'createdAt' | 'status'>) {
-    const newOrder: OrderStatus = {
+  async addOrder(order: Omit<OrderStatus, '_id' | 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
+    const newOrder = {
       ...order,
-      id: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      status: 'pending'
+      status: 'pending' as const
     };
     
-    orderManagementService.storeOrder(newOrder);
-    this.notifySubscribers();
-    return newOrder;
+    const created = await orderManagementService.storeOrder(newOrder);
+    this.scheduleNotifySoon();
+    return created;
   }
 
   // Update menu item stock and notify subscribers
-  updateMenuItemStock(itemId: string, inStock: boolean) {
-    menuService.setStock(itemId, inStock);
-    this.notifySubscribers();
+  async updateMenuItemStock(itemId: string, inStock: boolean) {
+    await menuService.setStock(itemId, inStock);
+    this.scheduleNotifySoon();
   }
 
   // Get orders by status
-  getOrdersByStatus(status: string) {
-    return orderManagementService.getOrders().filter(order => order.status === status);
+  async getOrdersByStatus(status: string) {
+    const orders = await orderManagementService.getOrders({ status });
+    return orders;
   }
 
   // Get orders for today
-  getTodaysOrders() {
+  async getTodaysOrders() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    return orderManagementService.getOrders().filter(order => 
+    const orders = await orderManagementService.getOrders();
+    return orders.filter(order => 
       new Date(order.createdAt) >= today
     );
   }
 
   // Get orders by date range
-  getOrdersByDateRange(startDate: Date, endDate: Date) {
-    return orderManagementService.getOrders().filter(order => {
-      const orderDate = new Date(order.createdAt);
-      return orderDate >= startDate && orderDate <= endDate;
+  async getOrdersByDateRange(startDate: Date, endDate: Date) {
+    const orders = await orderManagementService.getOrders({
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
     });
+    return orders;
   }
 
 }

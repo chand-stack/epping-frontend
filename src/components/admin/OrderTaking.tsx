@@ -144,11 +144,10 @@ const OrderTaking: React.FC = () => {
     try {
       const order = {
         items: orderItems.map(item => ({
-          id: item.id,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          brand: menuItems.find(mi => mi.id === item.id)?.restaurant || 'Unknown'
+          brand: menuItems.find(mi => (mi._id || mi.id) === item.id)?.restaurant || 'Unknown'
         })),
         total: getFinalTotal(),
         orderType,
@@ -159,31 +158,17 @@ const OrderTaking: React.FC = () => {
           address: orderType === 'delivery' ? customerInfo.address : '',
           paymentMethod
         },
-        specialInstructions: specialInstructions || undefined,
-        updatedAt: new Date().toISOString()
+        specialInstructions: specialInstructions || undefined
       };
 
-      const newOrder = adminService.addOrder(order);
+      const newOrder = await adminService.addOrder(order);
       
-      // Also add to cart for consistency
-      orderItems.forEach(item => {
-        const menuItem = menuItems.find(mi => mi.id === item.id);
-        if (menuItem) {
-          for (let i = 0; i < item.quantity; i++) {
-            addItem({
-              id: `${menuItem.restaurant.toLowerCase().replace(/\s+/g, '-')}-${item.name.toLowerCase().replace(/\s+/g, '-')}`,
-              name: item.name,
-              price: item.price,
-              description: menuItem.description,
-              brand: menuItem.restaurant,
-              image: menuItem.image,
-              quantity: 1
-            });
-          }
-        }
-      });
+      if (!newOrder) {
+        throw new Error('Failed to create order');
+      }
 
-      toast.success(`Order #${newOrder.id} created successfully!`);
+      const orderId = newOrder._id || newOrder.id || 'N/A';
+      toast.success(`Order #${orderId.slice(-8)} created successfully!`);
       
       // Reset form
       setOrderItems([]);

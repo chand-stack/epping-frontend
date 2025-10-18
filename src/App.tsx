@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { SimpleCartProvider } from "@/contexts/SimpleCartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Navigation } from "@/components/layout/Navigation";
@@ -29,46 +29,60 @@ const NotFound = React.lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
+// Component to handle conditional layout rendering
+const AppContent = () => {
+  const location = useLocation();
+  
+  // Hide navigation and footer for admin and login pages
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/admin';
+  
+  return (
+    <>
+      <div className="min-h-screen flex flex-col">
+        {!isAuthPage && <Navigation />}
+        <main id="main-content" className={isAuthPage ? "min-h-screen" : "flex-1"}>
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[50vh]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          }>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/ohsmash" element={<OhSmash />} />
+              <Route path="/wonder-wings" element={<WonderWings />} />
+              <Route path="/okra-green" element={<OkraGreen />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/order-online" element={<OrderOnline />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
+        </main>
+        {!isAuthPage && <Footer />}
+      </div>
+      {!isAuthPage && <FloatingCartBar />}
+      <Toaster />
+      <Sonner />
+      <Analytics />
+      <SpeedInsights />
+    </>
+  );
+};
+
 const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SimpleCartProvider>
           <TooltipProvider>
             <BrowserRouter>
-              <div className="min-h-screen flex flex-col">
-                <Navigation />
-                <main id="main-content" className="flex-1">
-                  <Suspense fallback={
-                    <div className="flex items-center justify-center min-h-[50vh]">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    </div>
-                  }>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/ohsmash" element={<OhSmash />} />
-                      <Route path="/wonder-wings" element={<WonderWings />} />
-                      <Route path="/okra-green" element={<OkraGreen />} />
-                      <Route path="/about" element={<About />} />
-                      <Route path="/contact" element={<Contact />} />
-                      <Route path="/order-online" element={<OrderOnline />} />
-                      <Route path="/cart" element={<Cart />} />
-                      <Route path="/login" element={<Login />} />
-                      <Route path="/admin" element={
-                        <ProtectedRoute>
-                          <Admin />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </main>
-                <Footer />
-              </div>
-              <FloatingCartBar />
-              <Toaster />
-              <Sonner />
-              <Analytics />
-              <SpeedInsights />
+              <AppContent />
             </BrowserRouter>
           </TooltipProvider>
         </SimpleCartProvider>

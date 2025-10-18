@@ -111,34 +111,33 @@ const CheckoutForm = () => {
 
     try {
       // Payment handled in-store or on delivery; no online payment step
-      // Generate order ID
-      const orderId = Math.random().toString(36).substr(2, 9);
       
-      // Store order in local management system
-      const order: OrderStatus = {
-        id: orderId,
-        status: 'pending',
+      // Store order in backend
+      const order = {
+        status: 'pending' as const,
         customerInfo: {
           name: customerInfo.name,
           phone: customerInfo.phone,
           email: customerInfo.email,
+          address: orderType === 'delivery' ? `${customerInfo.address.street}, ${customerInfo.address.city}, ${customerInfo.address.postcode}` : undefined,
         },
         items: state.items.map(item => ({
           name: item.name,
           quantity: item.quantity,
           price: item.price,
+          brand: item.brand,
         })),
-        total: state.total,
+        total: finalTotal,
         orderType,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
-      orderManagementService.storeOrder(order);
+      
+      const createdOrder = await orderManagementService.storeOrder(order);
+      const orderId = createdOrder?._id || 'N/A';
       
       // Send email notifications
-      await sendOrderEmails(orderId, customerInfo, state.items, state.total, orderType);
+      await sendOrderEmails(orderId, customerInfo, state.items, finalTotal, orderType);
       
-      toast.success(`Order submitted successfully! Order ID: ${orderId}`);
+      toast.success(`Order submitted successfully! Order ID: ${orderId.slice(-8)}`);
       clearCart(); // Clear cart after successful order
       
     } catch (error) {

@@ -8,7 +8,11 @@ import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle } from
 export const OrderDashboard: React.FC = () => {
   const [orders, setOrders] = useState<OrderStatus[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus['status'] | 'all'>('all');
-  const [stats, setStats] = useState(orderManagementService.getStatistics());
+  const [stats, setStats] = useState({
+    total: 0,
+    byStatus: {} as Record<string, number>,
+    byType: {} as Record<string, number>
+  });
 
   useEffect(() => {
     loadOrders();
@@ -17,10 +21,15 @@ export const OrderDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const loadOrders = () => {
-    const allOrders = orderManagementService.getOrders();
-    setOrders(allOrders);
-    setStats(orderManagementService.getStatistics());
+  const loadOrders = async () => {
+    try {
+      const allOrders = await orderManagementService.getOrders();
+      setOrders(allOrders);
+      const fetchedStats = await orderManagementService.getStatistics();
+      setStats(fetchedStats);
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+    }
   };
 
   const filteredOrders = selectedStatus === 'all' 
@@ -51,9 +60,13 @@ export const OrderDashboard: React.FC = () => {
     }
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus['status']) => {
-    orderManagementService.updateOrderStatus(orderId, newStatus);
-    loadOrders();
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus['status']) => {
+    try {
+      await orderManagementService.updateOrderStatus(orderId, newStatus);
+      await loadOrders();
+    } catch (error) {
+      console.error('Failed to update order status:', error);
+    }
   };
 
   const formatTime = (dateString: string) => {

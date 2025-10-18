@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
 export interface MenuItemData {
+  id?: string; // MongoDB _id for unique keys
   name: string;
   price: string;
   description?: string;
@@ -95,8 +96,8 @@ export const MenuLayout: React.FC<MenuLayoutProps> = ({ brand, categories, leftE
             >
               <h3 className="text-xl sm:text-2xl font-heading font-bold mb-3 sm:mb-4">{cat.name}</h3>
               <div className="space-y-3 sm:space-y-4">
-                {cat.items.map((item) => (
-                  <Card key={`${cat.name}-${item.name}`} className="border border-gray-200">
+                {cat.items.map((item, idx) => (
+                  <Card key={item.id || `${cat.name}-${item.name}-${idx}`} className="border border-gray-200">
                     <CardContent className="p-3 sm:p-4">
                       <div className="flex items-start gap-3 sm:gap-4">
                         {item.image ? (

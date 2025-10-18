@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { menuService } from '@/services/menuService';
-import { orderManagementService } from '@/services/orderManagement';
 import { toast } from 'sonner';
 import { RefreshCw, Upload, Database, FileUp, FileDown } from 'lucide-react';
 import { Label } from '@/components/ui/Label';
@@ -14,9 +13,8 @@ const SettingsPanel: React.FC = () => {
   const resetMockData = async () => {
     setBusy(true);
     try {
-      menuService.reset([]);
-      orderManagementService.reset([]);
-      toast.success('Mock data reset successfully');
+      toast.info('Reset functionality disabled - data is now stored in MongoDB');
+      // Note: Backend data should be managed directly through the database
     } catch (e) {
       toast.error('Failed to reset');
       console.error(e);
@@ -28,8 +26,8 @@ const SettingsPanel: React.FC = () => {
   const importFullMenu = async () => {
     setBusy(true);
     try {
-      await menuService.forceImportFromSite();
-      toast.success('Full site menu imported');
+      toast.info('Menu import disabled - data is now stored in MongoDB');
+      // Note: Menu data should be managed through the backend API
     } catch (e) {
       toast.error('Failed to import menu');
       console.error(e);
@@ -114,8 +112,8 @@ const SettingsPanel: React.FC = () => {
         if (siteMenusDynamic[k].length === 0) delete (siteMenusDynamic as any)[k];
       });
 
-      menuService.importFromSiteMenus(siteMenusDynamic);
-      toast.success('Menu imported from CSV');
+      // menuService.importFromSiteMenus(siteMenusDynamic);
+      toast.info('CSV import disabled - please use the backend API to manage menu items');
     } catch (e) {
       console.error(e);
       toast.error('Failed to import CSV');
@@ -194,8 +192,8 @@ const SettingsPanel: React.FC = () => {
                     if (!siteMenusDynamic[brand]) siteMenusDynamic[brand] = [];
                     siteMenusDynamic[brand].push({ name, price, description, category, veg, image });
                   }
-                  menuService.importFromSiteMenus(siteMenusDynamic);
-                  toast.success('Imported from template CSV');
+                  // menuService.importFromSiteMenus(siteMenusDynamic);
+                  toast.info('CSV import disabled - please use the backend API to manage menu items');
                 } catch (e) {
                   console.error(e);
                   toast.error('Failed to import from template');

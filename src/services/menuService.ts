@@ -1,7 +1,8 @@
-import { MenuCategoryData, MenuItemData } from '@/components/menu/MenuLayout';
+import { apiClient } from '@/config/api';
 
 export interface MenuItemRecord {
-  id: string;
+  _id?: string; // MongoDB ID
+  id?: string; // For backward compatibility
   restaurant: 'OhSmash' | 'Wonder Wings' | 'Okra Green';
   category: string;
   name: string;
@@ -10,332 +11,149 @@ export interface MenuItemRecord {
   image: string;
   veg: boolean;
   inStock: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 class MenuService {
-  private storageKey = 'eppingFoodCourtMenuItems';
   private listeners: Array<() => void> = [];
-  private inMemoryItems: MenuItemRecord[] | null = null;
-  private isSaving = false;
-  private pendingSave = false;
+  private cachedItems: MenuItemRecord[] | null = null;
 
-  constructor() {
-    this.initializeMenu();
-    // Fire-and-forget: auto-import CSV template if present and not yet imported
-    this.autoImportFromCsvIfRequested();
-  }
-
-  private initializeMenu() {
-    if (!localStorage.getItem(this.storageKey)) {
-      const initialItems: MenuItemRecord[] = [
-        // OhSmash items
-        {
-          id: 'ohsmash-smash-burger',
-          restaurant: 'OhSmash',
-          category: 'Burgers',
-          name: 'Smash Burger',
-          price: 9.50,
-          description: 'Double beef patty with cheese, lettuce, tomato, and our signature sauce',
-          image: '/assets/ohsmash-burger.jpg',
-          veg: false,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'ohsmash-bacon-burger',
-          restaurant: 'OhSmash',
-          category: 'Burgers',
-          name: 'Bacon Smash Burger',
-          price: 11.50,
-          description: 'Smash burger with crispy bacon, cheese, and special sauce',
-          image: '/assets/ohsmash-bacon-burger.jpg',
-          veg: false,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'ohsmash-fries',
-          restaurant: 'OhSmash',
-          category: 'Sides',
-          name: 'Crispy Fries',
-          price: 3.50,
-          description: 'Golden crispy fries with sea salt',
-          image: '/assets/ohsmash-fries.jpg',
-          veg: true,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        // Wonder Wings items
-        {
-          id: 'wonder-wings-original',
-          restaurant: 'Wonder Wings',
-          category: 'Wings',
-          name: 'Original Wings (6pc)',
-          price: 8.50,
-          description: 'Crispy wings with our original seasoning',
-          image: '/assets/wonder-wings-original.jpg',
-          veg: false,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'wonder-wings-buffalo',
-          restaurant: 'Wonder Wings',
-          category: 'Wings',
-          name: 'Buffalo Wings (6pc)',
-          price: 8.50,
-          description: 'Spicy buffalo wings with blue cheese dip',
-          image: '/assets/wonder-wings-buffalo.jpg',
-          veg: false,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'wonder-wings-combo',
-          restaurant: 'Wonder Wings',
-          category: 'Combos',
-          name: 'Wings & Fries Combo',
-          price: 12.50,
-          description: '6 wings with crispy fries and a drink',
-          image: '/assets/wonder-wings-combo.jpg',
-          veg: false,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        // Okra Green items
-        {
-          id: 'okra-green-butter-chicken',
-          restaurant: 'Okra Green',
-          category: 'Curries',
-          name: 'Butter Chicken',
-          price: 13.50,
-          description: 'Tender chicken in rich tomato and cream sauce',
-          image: '/assets/okra-green-butter-chicken.jpg',
-          veg: false,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'okra-green-dal',
-          restaurant: 'Okra Green',
-          category: 'Curries',
-          name: 'Dal Tadka',
-          price: 8.50,
-          description: 'Lentil curry with aromatic spices',
-          image: '/assets/okra-green-dal.jpg',
-          veg: true,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'okra-green-naan',
-          restaurant: 'Okra Green',
-          category: 'Breads',
-          name: 'Garlic Naan',
-          price: 3.50,
-          description: 'Fresh baked naan with garlic and herbs',
-          image: '/assets/okra-green-naan.jpg',
-          veg: true,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-      localStorage.setItem(this.storageKey, JSON.stringify(initialItems));
-    }
-  }
-
-  // Parse a single CSV line into fields (handles quoted commas)
-  private parseCsvLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        // Toggle quote state or handle escaped quotes
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++; // skip escaped quote
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-    return result;
-  }
-
-  // Import from raw CSV text (expects header: Brand,Category,Name,Description,Price,VEG,Image)
-  importFromCsv(csvText: string) {
-    const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
-    if (lines.length <= 1) return;
-    const header = this.parseCsvLine(lines[0]).map(h => h.toLowerCase());
-    const colIndex = (name: string) => header.indexOf(name.toLowerCase());
-    const idxBrand = colIndex('brand');
-    const idxCategory = colIndex('category');
-    const idxName = colIndex('name');
-    const idxDescription = colIndex('description');
-    const idxPrice = colIndex('price');
-    const idxVeg = colIndex('veg');
-    const idxImage = colIndex('image');
-
-    const imported: MenuItemRecord[] = [];
-    const nowIso = new Date().toISOString();
-    for (let i = 1; i < lines.length; i++) {
-      const fields = this.parseCsvLine(lines[i]);
-      if (!fields.length) continue;
-      const restaurant = (fields[idxBrand] || '').trim() as MenuItemRecord['restaurant'];
-      const name = (fields[idxName] || '').trim();
-      const priceStr = (fields[idxPrice] || '').trim();
-      if (!restaurant || !name || !priceStr) continue;
-      const price = Number(priceStr);
-      if (Number.isNaN(price)) continue;
-      const category = (fields[idxCategory] || 'General').trim();
-      const description = (fields[idxDescription] || '').trim();
-      const image = (fields[idxImage] || '').trim();
-      const vegRaw = (fields[idxVeg] || '').trim().toLowerCase();
-      const veg = vegRaw === 'true' || vegRaw === 'yes' || vegRaw === '1';
-
-      const id = `${restaurant.toLowerCase().replace(/\s+/g, '-')}-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
-      imported.push({
-        id,
-        restaurant,
-        category,
-        name,
-        price,
-        description,
-        image,
-        veg,
-        inStock: true,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      });
-    }
-    if (imported.length > 0) {
-      this.reset(imported);
-      localStorage.setItem('eppingMenuImportedFromCsv', 'true');
-    }
-  }
-
-  private async autoImportFromCsvIfRequested() {
+  // Fetch all menu items from backend
+  async fetchAll(restaurant?: string, category?: string): Promise<MenuItemRecord[]> {
     try {
-      const already = localStorage.getItem('eppingMenuImportedFromSite');
-      if (already === 'true') return;
+      const params: any = {};
+      if (restaurant) params.restaurant = restaurant;
+      if (category) params.category = category;
+
+      const response = await apiClient.get('/menu-items', { params });
+      const items = response.data.data.map((item: any) => ({
+        ...item,
+        id: item._id, // Map MongoDB _id to id for compatibility
+      }));
       
-      // Always import on first load if not already imported
-      const { siteMenus } = await import('@/data/siteMenus');
-      this.importFromSiteMenus(siteMenus);
-      localStorage.setItem('eppingMenuImportedFromSite', 'true');
-    } catch (e) {
-      console.error('Failed to auto-import menu:', e);
+      this.cachedItems = items;
+      return items;
+    } catch (error) {
+      console.error('Error fetching menu items:', error);
+      return [];
     }
   }
 
-  private loadFromStorage(): MenuItemRecord[] {
-    const data = localStorage.getItem(this.storageKey);
-    return data ? JSON.parse(data) : [];
-  }
-
-  private saveToStorageDebounced() {
-    if (this.isSaving) {
-      this.pendingSave = true;
-      return;
-    }
-    this.isSaving = true;
-    try {
-      if (this.inMemoryItems) {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.inMemoryItems));
-      }
-    } finally {
-      this.isSaving = false;
-      if (this.pendingSave) {
-        this.pendingSave = false;
-        // queue another tick to coalesce rapid updates
-        setTimeout(() => this.saveToStorageDebounced(), 0);
-      }
-    }
-  }
-
+  // Get all menu items (returns cached or fetches)
   getAll(): MenuItemRecord[] {
-    if (!this.inMemoryItems) {
-      this.inMemoryItems = this.loadFromStorage();
+    return this.cachedItems || [];
+  }
+
+  // Get menu items by restaurant
+  async getByRestaurant(restaurant: string): Promise<MenuItemRecord[]> {
+    return this.fetchAll(restaurant);
+  }
+
+  // Get single menu item by ID
+  async getById(id: string): Promise<MenuItemRecord | null> {
+    try {
+      const response = await apiClient.get(`/menu-items/${id}`);
+      const item = response.data.data;
+      return {
+        ...item,
+        id: item._id,
+      };
+    } catch (error) {
+      console.error('Error fetching menu item:', error);
+      return null;
     }
-    return this.inMemoryItems;
   }
 
-  getByRestaurant(restaurant: string): MenuItemRecord[] {
-    return this.getAll().filter(item => item.restaurant === restaurant);
+  // Add new menu item
+  async add(item: Omit<MenuItemRecord, 'id' | '_id' | 'createdAt' | 'updatedAt'>): Promise<MenuItemRecord> {
+    try {
+      const response = await apiClient.post('/menu-items', item);
+      const newItem = response.data.data;
+      const mappedItem = {
+        ...newItem,
+        id: newItem._id,
+      };
+      
+      // Update cache
+      if (this.cachedItems) {
+        this.cachedItems.unshift(mappedItem);
+      }
+      
+      this.notify();
+      return mappedItem;
+    } catch (error) {
+      console.error('Error adding menu item:', error);
+      throw error;
+    }
   }
 
-  getById(id: string): MenuItemRecord | null {
-    return this.getAll().find(item => item.id === id) || null;
+  // Update menu item
+  async update(id: string, updates: Partial<Omit<MenuItemRecord, 'id' | '_id' | 'createdAt' | 'updatedAt'>>): Promise<MenuItemRecord | null> {
+    try {
+      const response = await apiClient.put(`/menu-items/${id}`, updates);
+      const updatedItem = response.data.data;
+      const mappedItem = {
+        ...updatedItem,
+        id: updatedItem._id,
+      };
+      
+      // Update cache
+      if (this.cachedItems) {
+        const index = this.cachedItems.findIndex(item => (item.id || item._id) === id);
+        if (index !== -1) {
+          this.cachedItems[index] = mappedItem;
+        }
+      }
+      
+      this.notify();
+      return mappedItem;
+    } catch (error) {
+      console.error('Error updating menu item:', error);
+      return null;
+    }
   }
 
-  add(item: Omit<MenuItemRecord, 'id' | 'createdAt' | 'updatedAt'>): MenuItemRecord {
-    const items = this.getAll();
-    const newItem: MenuItemRecord = {
-      ...item,
-      id: `${item.restaurant.toLowerCase().replace(/\s+/g, '-')}-${item.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    items.unshift(newItem);
-    this.inMemoryItems = items;
-    this.saveToStorageDebounced();
-    this.notify();
-    return newItem;
+  // Remove menu item
+  async remove(id: string): Promise<boolean> {
+    try {
+      await apiClient.delete(`/menu-items/${id}`);
+      
+      // Update cache
+      if (this.cachedItems) {
+        this.cachedItems = this.cachedItems.filter(item => (item.id || item._id) !== id);
+      }
+      
+      this.notify();
+      return true;
+    } catch (error) {
+      console.error('Error removing menu item:', error);
+      return false;
+    }
   }
 
-  update(id: string, updates: Partial<Omit<MenuItemRecord, 'id' | 'createdAt' | 'updatedAt'>>): MenuItemRecord | null {
-    const items = this.getAll();
-    const index = items.findIndex(item => item.id === id);
-    if (index === -1) return null;
-
-    items[index] = {
-      ...items[index],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-    this.inMemoryItems = items;
-    this.saveToStorageDebounced();
-    this.notify();
-    return items[index];
-  }
-
-  remove(id: string): boolean {
-    const items = this.getAll();
-    const filtered = items.filter(item => item.id !== id);
-    if (filtered.length === items.length) return false;
-    this.inMemoryItems = filtered;
-    this.saveToStorageDebounced();
+  // Toggle stock status
+  async setStock(id: string, inStock: boolean): Promise<boolean> {
+    try {
+      await apiClient.patch(`/menu-items/${id}/stock`);
+      
+      // Update cache
+      if (this.cachedItems) {
+        const index = this.cachedItems.findIndex(item => (item.id || item._id) === id);
+        if (index !== -1) {
+          this.cachedItems[index].inStock = inStock;
+        }
+      }
+      
     this.notify();
     return true;
+    } catch (error) {
+      console.error('Error toggling stock:', error);
+      return false;
+    }
   }
 
-  setStock(id: string, inStock: boolean): boolean {
-    const item = this.getById(id);
-    if (!item) return false;
-    const ok = this.update(id, { inStock }) !== null;
-    this.notify();
-    return ok;
-  }
-
+  // Search menu items
   search(query: string): MenuItemRecord[] {
     const items = this.getAll();
     const lowercaseQuery = query.toLowerCase();
@@ -346,14 +164,26 @@ class MenuService {
     );
   }
 
-  getCategories(restaurant?: string): string[] {
-    const items = restaurant ? this.getByRestaurant(restaurant) : this.getAll();
+  // Get categories for a restaurant
+  async getCategories(restaurant?: string): Promise<string[]> {
+    if (restaurant) {
+      try {
+        const response = await apiClient.get(`/menu-items/categories/${restaurant}`);
+        return response.data.data;
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+      }
+    }
+    
+    const items = this.getAll();
     const categories = new Set(items.map(item => item.category));
     return Array.from(categories).sort();
   }
 
-  getStats() {
-    const items = this.getAll();
+  // Get statistics
+  async getStats() {
+    const items = await this.fetchAll();
     return {
       total: items.length,
       inStock: items.filter(item => item.inStock).length,
@@ -370,48 +200,7 @@ class MenuService {
     };
   }
 
-  // Reset to empty or provided items
-  reset(items: MenuItemRecord[] = []): void {
-    this.inMemoryItems = items;
-    this.saveToStorageDebounced();
-    this.notify();
-  }
-
-  // Force import from site menus (for manual trigger)
-  async forceImportFromSite(): Promise<void> {
-    try {
-      const { siteMenus } = await import('@/data/siteMenus');
-      this.importFromSiteMenus(siteMenus);
-      localStorage.setItem('eppingMenuImportedFromSite', 'true');
-    } catch (e) {
-      console.error('Failed to force import menu:', e);
-      throw e;
-    }
-  }
-
-  // Bulk import from site menu shape
-  importFromSiteMenus(siteMenus: Record<string, { name: string; price: number; description?: string; category: string; veg?: boolean; image?: string; }[]>): void {
-    const imported: MenuItemRecord[] = [];
-    Object.entries(siteMenus).forEach(([restaurant, list]) => {
-      list.forEach((m) => {
-        imported.push({
-          id: `${restaurant.toLowerCase().replace(/\s+/g, '-')}-${m.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-          restaurant: restaurant as any,
-          category: m.category || 'General',
-          name: m.name,
-          price: m.price,
-          description: m.description || '',
-          image: m.image || '',
-          veg: !!m.veg,
-          inStock: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      });
-    });
-    this.reset(imported);
-  }
-
+  // Subscribe to changes
   subscribe(listener: () => void) {
     this.listeners.push(listener);
     return () => {
@@ -419,6 +208,7 @@ class MenuService {
     };
   }
 
+  // Notify subscribers
   private notify() {
     this.listeners.forEach(l => {
       try { l(); } catch {}

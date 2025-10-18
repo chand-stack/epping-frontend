@@ -12,11 +12,12 @@ const WonderWings = () => {
   const [menuData, setMenuData] = useState<MenuCategoryData[]>([]);
 
   const groupIntoCategories = useCallback((items: any[]): MenuCategoryData[] => {
-    const byCat: Record<string, { name: string; items: { name: string; price: string; description: string; veg?: boolean }[] }> = {};
+    const byCat: Record<string, { name: string; items: { id: string; name: string; price: string; description: string; veg?: boolean }[] }> = {};
     items.forEach((i) => {
       const cat = i.category || 'General';
       if (!byCat[cat]) byCat[cat] = { name: cat, items: [] };
       byCat[cat].items.push({ 
+        id: i._id || i.id,
         name: i.name, 
         price: i.price.toFixed(2), 
         description: i.description || '', 
@@ -26,10 +27,13 @@ const WonderWings = () => {
     return Object.values(byCat);
   }, []);
 
-  const loadMenu = useCallback(() => {
-    const all = menuService.getAll();
-    const wonderWingsItems = all.filter(i => i.restaurant === 'Wonder Wings');
-    setMenuData(groupIntoCategories(wonderWingsItems));
+  const loadMenu = useCallback(async () => {
+    try {
+      const wonderWingsItems = await menuService.getByRestaurant('Wonder Wings');
+      setMenuData(groupIntoCategories(wonderWingsItems));
+    } catch (error) {
+      console.error('Error loading menu:', error);
+    }
   }, [groupIntoCategories]);
 
   useEffect(() => {

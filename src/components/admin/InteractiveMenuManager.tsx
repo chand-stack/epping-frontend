@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { menuService, MenuItemRecord } from '@/services/menuService';
 import { 
   Plus, 
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 
 const InteractiveMenuManager: React.FC = () => {
+  const { toast } = useToast();
   const [items, setItems] = useState<MenuItemRecord[]>([]);
   const [filter, setFilter] = useState<MenuItemRecord['restaurant'] | 'All'>('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,8 +30,11 @@ const InteractiveMenuManager: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDescId, setEditingDescId] = useState<string | null>(null);
   const [descDraft, setDescDraft] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
-  const [draft, setDraft] = useState<Omit<MenuItemRecord, 'id' | 'createdAt' | 'updatedAt'>>({
+  const [draft, setDraft] = useState<Omit<MenuItemRecord, 'id' | '_id' | 'createdAt' | 'updatedAt'>>({
     restaurant: 'OhSmash',
     category: 'General',
     name: '',
@@ -41,11 +46,26 @@ const InteractiveMenuManager: React.FC = () => {
   });
 
   useEffect(() => {
-    const load = () => setItems(menuService.getAll());
+    const load = async () => {
+      setLoading(true);
+      try {
+        const allItems = await menuService.fetchAll();
+        setItems(allItems);
+      } catch (error) {
+        console.error('Failed to load menu items:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load menu items. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
     load();
     const unsub = menuService.subscribe(load);
     return () => unsub();
-  }, []);
+  }, [toast]);
 
   // Debounce search term
   useEffect(() => {
@@ -73,31 +93,88 @@ const InteractiveMenuManager: React.FC = () => {
   }, [items, filter, debouncedSearchTerm]);
 
 
-  const addItem = () => {
-    if (!draft.name || draft.price <= 0) return;
-    const created = menuService.add(draft);
-    setItems([created, ...items]);
-    setDraft({
-      restaurant: 'OhSmash',
-      category: 'General',
-      name: '',
-      price: 0,
-      description: '',
-      image: '',
-      veg: false,
-      inStock: true,
-    });
-    setShowAddForm(false);
+  const addItem = async () => {
+    if (!draft.name || draft.price <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid item name and price.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const created = await menuService.add(draft);
+      setItems([created, ...items]);
+      setDraft({
+        restaurant: 'OhSmash',
+        category: 'General',
+        name: '',
+        price: 0,
+        description: '',
+        image: '',
+        veg: false,
+        inStock: true,
+      });
+      setShowAddForm(false);
+      toast({
+        title: "Success",
+        description: `${created.name} has been added to the menu.`,
+      });
+    } catch (error) {
+      console.error('Failed to add item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add menu item. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const deleteItem = (id: string) => {
-    menuService.remove(id);
+    const item = items.find(i => (i.id || i._id) === id);
+    if (!item) return;
+    setDeleteConfirm({ id, name: item.name });
   };
 
-  const toggleStock = (id: string) => {
-    const item = items.find(i => i.id === id);
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await menuService.remove(deleteConfirm.id);
+      setItems(items.filter(i => (i.id || i._id) !== deleteConfirm.id));
+      toast({
+        title: "Success",
+        description: `${deleteConfirm.name} has been deleted.`,
+      });
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete menu item. Please try again.",
+        variant: "destructive",
+      });
+      setDeleteConfirm(null);
+    }
+  };
+
+  const toggleStock = async (id: string) => {
+    const item = items.find(i => (i.id || i._id) === id);
     if (!item) return;
-    menuService.setStock(id, !item.inStock);
+    try {
+      await menuService.setStock(id, !item.inStock);
+      setItems(items.map(i => ((i.id || i._id) === id ? { ...i, inStock: !i.inStock } : i)));
+      toast({
+        title: "Success",
+        description: `${item.name} is now ${!item.inStock ? 'in stock' : 'out of stock'}.`,
+      });
+    } catch (error) {
+      console.error('Failed to toggle stock:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update stock status. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleSelection = (id: string) => {
@@ -108,24 +185,151 @@ const InteractiveMenuManager: React.FC = () => {
     );
   };
 
-  const bulkToggleStock = (inStock: boolean) => {
-    selectedItems.forEach(id => {
-      menuService.setStock(id, inStock);
-    });
-    setItems(items.map(i => 
-      selectedItems.includes(i.id) ? { ...i, inStock } : i
-    ));
-    setSelectedItems([]);
+  const bulkToggleStock = async (inStock: boolean) => {
+    try {
+      await Promise.all(selectedItems.map(id => menuService.setStock(id, inStock)));
+      setItems(items.map(i => 
+        selectedItems.includes(i.id || i._id || '') ? { ...i, inStock } : i
+      ));
+      toast({
+        title: "Success",
+        description: `${selectedItems.length} item(s) marked as ${inStock ? 'in stock' : 'out of stock'}.`,
+      });
+      setSelectedItems([]);
+    } catch (error) {
+      console.error('Failed to update stock:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update some items. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const bulkDelete = () => {
-    selectedItems.forEach(id => menuService.remove(id));
-    setItems(items.filter(i => !selectedItems.includes(i.id)));
-    setSelectedItems([]);
+    setBulkDeleteConfirm(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    const count = selectedItems.length;
+    try {
+      await Promise.all(selectedItems.map(id => menuService.remove(id)));
+      setItems(items.filter(i => !selectedItems.includes(i.id || i._id || '')));
+      toast({
+        title: "Success",
+        description: `${count} item(s) have been deleted.`,
+      });
+      setSelectedItems([]);
+      setBulkDeleteConfirm(false);
+    } catch (error) {
+      console.error('Failed to delete items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete some items. Please try again.",
+        variant: "destructive",
+      });
+      setBulkDeleteConfirm(false);
+    }
+  };
+
+  const updateDescription = async (id: string, description: string) => {
+    try {
+      await menuService.update(id, { description });
+      setEditingDescId(null);
+      toast({
+        title: "Success",
+        description: "Description updated successfully.",
+      });
+    } catch (error) {
+      console.error('Failed to update description:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update description. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updatePrice = async (id: string, itemName: string, price: number) => {
+    try {
+      await menuService.update(id, { price });
+      toast({
+        title: "Success",
+        description: `Price for ${itemName} updated to £${price.toFixed(2)}.`,
+      });
+    } catch (error) {
+      console.error('Failed to update price:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update price. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateCategory = async (id: string, itemName: string, category: string) => {
+    try {
+      await menuService.update(id, { category });
+      toast({
+        title: "Success",
+        description: `Category for ${itemName} updated to ${category}.`,
+      });
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update category. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-2">Delete Menu Item</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmDelete}>
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-2">Delete Multiple Items</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to delete <strong>{selectedItems.length} item(s)</strong>? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setBulkDeleteConfirm(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmBulkDelete}>
+                  Delete All
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
@@ -335,20 +539,31 @@ const InteractiveMenuManager: React.FC = () => {
         </Card>
       )}
 
-      {/* Items Grid/List */}
-      <div className={viewMode === 'grid' 
-        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-        : 'space-y-2'
-      }>
-        {filteredItems.map((item) => (
-          <Card key={item.id} className="hover:shadow-lg transition-shadow">
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-500">No menu items found. Add some items to get started!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className={viewMode === 'grid' 
+          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+          : 'space-y-2'
+        }>
+          {filteredItems.map((item) => (
+          <Card key={item.id || item._id} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={selectedItems.includes(item.id)}
-                    onChange={() => toggleSelection(item.id)}
+                    checked={selectedItems.includes(item.id || item._id || '')}
+                    onChange={() => toggleSelection(item.id || item._id || '')}
                     className="rounded"
                   />
                   <div>
@@ -360,14 +575,14 @@ const InteractiveMenuManager: React.FC = () => {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => toggleStock(item.id)}
+                    onClick={() => toggleStock(item.id || item._id || '')}
                   >
                     {item.inStock ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => deleteItem(item.id)}
+                    onClick={() => deleteItem(item.id || item._id || '')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -375,7 +590,7 @@ const InteractiveMenuManager: React.FC = () => {
               </div>
 
               <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                {editingDescId === item.id ? (
+                {editingDescId === (item.id || item._id) ? (
                   <div className="space-y-2">
                     <textarea
                       value={descDraft}
@@ -387,10 +602,7 @@ const InteractiveMenuManager: React.FC = () => {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => {
-                          menuService.update(item.id, { description: descDraft });
-                          setEditingDescId(null);
-                        }}
+                        onClick={() => updateDescription(item.id || item._id || '', descDraft)}
                       >
                         Save
                       </Button>
@@ -413,7 +625,7 @@ const InteractiveMenuManager: React.FC = () => {
                       variant="ghost"
                       className="shrink-0"
                       onClick={() => {
-                        setEditingDescId(item.id);
+                        setEditingDescId(item.id || item._id || '');
                         setDescDraft(item.description || '');
                       }}
                       aria-label="Edit description"
@@ -431,7 +643,11 @@ const InteractiveMenuManager: React.FC = () => {
                     step="0.01"
                     className="w-24 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     value={item.price}
-                    onChange={(e) => menuService.update(item.id, { price: Number(e.target.value) })}
+                    onBlur={(e) => updatePrice(item.id || item._id || '', item.name, Number(e.target.value))}
+                    onChange={(e) => {
+                      const newPrice = Number(e.target.value);
+                      setItems(items.map(i => ((i.id || i._id) === (item.id || item._id) ? { ...i, price: newPrice } : i)));
+                    }}
                   />
                   {item.veg && (
                     <Badge variant="outline" className="text-green-600 border-green-600">
@@ -443,7 +659,11 @@ const InteractiveMenuManager: React.FC = () => {
                   <select
                     className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     value={item.category}
-                    onChange={(e) => menuService.update(item.id, { category: e.target.value })}
+                    onChange={(e) => {
+                      const newCategory = e.target.value;
+                      setItems(items.map(i => ((i.id || i._id) === (item.id || item._id) ? { ...i, category: newCategory } : i)));
+                      updateCategory(item.id || item._id || '', item.name, newCategory);
+                    }}
                   >
                     <option value={item.category}>{item.category}</option>
                   </select>
@@ -458,14 +678,7 @@ const InteractiveMenuManager: React.FC = () => {
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      {filteredItems.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">No menu items found</p>
-          </CardContent>
-        </Card>
+        </div>
       )}
     </div>
   );

@@ -17,7 +17,11 @@ export const AdminShell: React.FC = () => {
 
   useEffect(() => {
     // Load initial stats
-    setAdminStats(adminService.getStats());
+    const loadStats = async () => {
+      const stats = await adminService.getStats();
+      setAdminStats(stats);
+    };
+    loadStats();
     
     // Subscribe to real-time updates
     const unsubscribe = adminService.subscribe((stats) => {

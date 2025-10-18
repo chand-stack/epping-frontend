@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -27,7 +28,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -55,7 +62,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -65,8 +72,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
       )}
 
       {/* Sidebar */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-white dark:bg-gray-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex items-center justify-between h-16 px-4 sm:px-6 border-b border-gray-200 dark:border-gray-700">
@@ -107,8 +114,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
                       variant="ghost"
                       className="w-full justify-start text-left text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                       onClick={() => {
-                        logout();
                         setShowUserMenu(false);
+                        handleLogout();
                       }}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
@@ -121,7 +128,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
           </div>
         </div>
 
-        <nav className="mt-4 px-2 sm:px-3 space-y-1">
+        <nav className="mt-4 px-2 sm:px-3 space-y-1 flex-1 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
@@ -145,12 +152,37 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
             );
           })}
         </nav>
-      </div>
+
+        {/* Desktop User Section at Bottom */}
+        <div className="hidden lg:block border-t border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center space-x-3 mb-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {user?.username}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                {user?.role}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-800"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </Button>
+        </div>
+      </aside>
 
       {/* Main content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 min-h-screen relative">
         {/* Mobile menu button */}
-        <div className="lg:hidden fixed top-4 left-4 z-40">
+        <div className="lg:hidden fixed top-4 left-4 z-30">
           <Button
             variant="ghost"
             size="icon"
@@ -162,8 +194,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onPage
         </div>
 
         {/* Page content */}
-        <main className="p-3 sm:p-4 lg:p-6">
-          <div className="max-w-full overflow-x-auto">
+        <main className="pt-16 lg:pt-0 p-3 sm:p-4 lg:p-6 w-full">
+          <div className="max-w-full">
             {children}
           </div>
         </main>
