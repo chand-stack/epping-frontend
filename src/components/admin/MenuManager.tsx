@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { menuService, type MenuItemRecord } from '@/services/menuService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { MenuItemSkeleton } from '@/components/ui/skeletons';
 
 const MenuManager: React.FC = () => {
   const [items, setItems] = useState<MenuItemRecord[]>([]);
@@ -76,14 +77,6 @@ const MenuManager: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="grid lg:grid-cols-3 gap-6">
       <Card className="lg:col-span-1 border">
@@ -121,31 +114,39 @@ const MenuManager: React.FC = () => {
             <option>Okra Green</option>
           </select>
           <span className="text-sm text-muted-foreground ml-auto">
-            {visible.length} items
+            {loading ? '...' : `${visible.length} items`}
           </span>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          {visible.map((i)=>(
-            <Card key={i.id || i._id} className="border">
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-muted-foreground">{i.restaurant} • {i.category}</div>
-                    <div className="font-semibold">{i.name}</div>
+          {loading ? (
+            <>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <MenuItemSkeleton key={i} />
+              ))}
+            </>
+          ) : (
+            visible.map((i)=>(
+              <Card key={i.id || i._id} className="border">
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground">{i.restaurant} • {i.category}</div>
+                      <div className="font-semibold">{i.name}</div>
+                    </div>
+                    <div className="font-semibold">£{i.price.toFixed(2)}</div>
                   </div>
-                  <div className="font-semibold">£{i.price.toFixed(2)}</div>
-                </div>
-                {i.description ? <div className="text-sm text-muted-foreground">{i.description}</div> : null}
-                <div className="flex gap-2 pt-2">
-                  <Button size="sm" variant={i.inStock ? 'outline' : 'default'} onClick={()=>toggleStock(i.id || i._id!)}>
-                    {i.inStock ? 'Mark Out of Stock' : 'Mark In Stock'}
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={()=>remove(i.id || i._id!)}>Delete</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {i.description ? <div className="text-sm text-muted-foreground">{i.description}</div> : null}
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" variant={i.inStock ? 'outline' : 'default'} onClick={()=>toggleStock(i.id || i._id!)}>
+                      {i.inStock ? 'Mark Out of Stock' : 'Mark In Stock'}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={()=>remove(i.id || i._id!)}>Delete</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCart } from '@/contexts/SimpleCartContext';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CreditCard } from 'lucide-react';
 import { orderManagementService, OrderStatus } from '@/services/orderManagement';
 import { emailService, OrderEmailData } from '@/services/emailService';
+import { PaymentModal } from '@/components/checkout/PaymentModal';
 
 interface CustomerInfo {
   name: string;
@@ -25,6 +26,7 @@ const CheckoutForm = () => {
   const { state, clearCart } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
@@ -35,7 +37,7 @@ const CheckoutForm = () => {
       city: 'Epping',
       postcode: 'CM16 4BA',
     },
-    paymentMethod: 'pay_at_pickup',
+    paymentMethod: 'card',
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -107,12 +109,16 @@ const CheckoutForm = () => {
       return;
     }
 
+    // Open payment modal
+    setIsPaymentModalOpen(true);
+  };
+
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
+    setIsPaymentModalOpen(false);
     setIsSubmitting(true);
 
     try {
-      // Payment handled in-store or on delivery; no online payment step
-      
-      // Store order in backend
+      // Store order in backend after successful payment
       const order = {
         status: 'pending' as const,
         customerInfo: {
@@ -120,6 +126,7 @@ const CheckoutForm = () => {
           phone: customerInfo.phone,
           email: customerInfo.email,
           address: orderType === 'delivery' ? `${customerInfo.address.street}, ${customerInfo.address.city}, ${customerInfo.address.postcode}` : undefined,
+          paymentMethod: 'card',
         },
         items: state.items.map(item => ({
           name: item.name,
@@ -129,6 +136,7 @@ const CheckoutForm = () => {
         })),
         total: finalTotal,
         orderType,
+        paymentIntentId, // Store payment intent ID
       };
       
       const createdOrder = await orderManagementService.storeOrder(order);
@@ -140,12 +148,34 @@ const CheckoutForm = () => {
       toast.success(`Order submitted successfully! Order ID: ${orderId.slice(-8)}`);
       clearCart(); // Clear cart after successful order
       
+      // Reset form
+      setCustomerInfo({
+        name: '',
+        phone: '',
+        email: '',
+        address: {
+          street: '',
+          city: 'Epping',
+          postcode: 'CM16 4BA',
+        },
+        paymentMethod: 'card',
+      });
+      
     } catch (error) {
       console.error('Order submission error:', error);
-      toast.error('Failed to submit order. Please try again.');
+      toast.error('Failed to submit order. Please contact support with your payment confirmation.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentError = (error: string) => {
+    setIsPaymentModalOpen(false);
+    toast.error(`Payment failed: ${error}`);
+  };
+
+  const handlePaymentModalClose = () => {
+    setIsPaymentModalOpen(false);
   };
 
   const deliveryFee = orderType === 'delivery' ? 2.50 : 0;
@@ -331,12 +361,26 @@ const CheckoutForm = () => {
                   Processing Order...
                 </>
               ) : (
-                `Place ${orderType === 'delivery' ? 'Delivery' : 'Pickup'} Order - £${finalTotal.toFixed(2)}`
+                <>
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Proceed to Payment - £{finalTotal.toFixed(2)}
+                </>
               )}
             </Button>
           </form>
         </CardContent>
       </Card>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={handlePaymentModalClose}
+        amount={finalTotal}
+        customerEmail={customerInfo.email}
+        customerName={customerInfo.name}
+        onPaymentSuccess={handlePaymentSuccess}
+        onPaymentError={handlePaymentError}
+      />
     </div>
   );
 };

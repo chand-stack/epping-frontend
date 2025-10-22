@@ -7,9 +7,11 @@ import { ArrowRight, MapPin, Clock, Star, ChefHat, Award, Heart, Utensils, Coffe
 import { MenuLayout, MenuCategoryData } from '@/components/menu/MenuLayout';
 import { menuService } from '@/services/menuService';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { FrontendMenuSkeleton } from '@/components/ui/skeletons';
 
 const WonderWings = () => {
   const [menuData, setMenuData] = useState<MenuCategoryData[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const groupIntoCategories = useCallback((items: any[]): MenuCategoryData[] => {
     const byCat: Record<string, { name: string; items: { id: string; name: string; price: string; description: string; veg?: boolean }[] }> = {};
@@ -28,11 +30,14 @@ const WonderWings = () => {
   }, []);
 
   const loadMenu = useCallback(async () => {
+    setLoading(true);
     try {
       const wonderWingsItems = await menuService.getByRestaurant('Wonder Wings');
       setMenuData(groupIntoCategories(wonderWingsItems));
     } catch (error) {
       console.error('Error loading menu:', error);
+    } finally {
+      setLoading(false);
     }
   }, [groupIntoCategories]);
 
@@ -141,7 +146,11 @@ const WonderWings = () => {
 
       {/* Complete Menu - Foodhub-style layout */}
       <section className="pt-4 sm:pt-6 pb-8 sm:pb-12 bg-secondary">
-        <MenuLayout brand="Wonder Wings" categories={menuData} />
+        {loading ? (
+          <FrontendMenuSkeleton />
+        ) : (
+          <MenuLayout brand="Wonder Wings" categories={menuData} />
+        )}
       </section>
 
       {/* Opening Hours - moved below menu */}

@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { InventoryItemSkeleton } from '@/components/ui/skeletons';
 import { 
   Package, 
   AlertTriangle, 
@@ -24,12 +26,15 @@ import {
 import { inventoryService, InventoryItem, InventoryCategory } from '@/services/inventoryService';
 
 const InventoryManager: React.FC = () => {
+  const { toast } = useToast();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<InventoryCategory[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalItems: 0,
     lowStockCount: 0,
@@ -50,10 +55,17 @@ const InventoryManager: React.FC = () => {
   });
 
   useEffect(() => {
-    const loadData = () => {
-      setItems(inventoryService.getAllItems());
-      setCategories(inventoryService.getCategories());
-      setStats(inventoryService.getInventoryStats());
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const fetchedItems = await inventoryService.getAllItems();
+        setItems(fetchedItems);
+        setCategories(inventoryService.getCategories());
+        const fetchedStats = await inventoryService.getInventoryStats();
+        setStats(fetchedStats);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadData();
@@ -86,40 +98,87 @@ const InventoryManager: React.FC = () => {
     return 'IN STOCK';
   };
 
-  const addItem = () => {
-    if (!draft.name || draft.currentStock < 0) return;
+  const addItem = async () => {
+    if (!draft.name || draft.currentStock < 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid item name and stock quantity.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    inventoryService.addItem(draft);
-    setDraft({
-      name: '',
-      category: 'proteins',
-      currentStock: 0,
-      minStock: 10,
-      maxStock: 100,
-      unit: 'pieces',
-      supplier: '',
-      description: '',
-      allergens: []
-    });
-    setShowAddForm(false);
+    try {
+      await inventoryService.addItem(draft);
+      const fetchedItems = await inventoryService.getAllItems();
+      setItems(fetchedItems);
+      toast({
+        title: "Success",
+        description: `${draft.name} has been added to inventory.`,
+      });
+      setDraft({
+        name: '',
+        category: 'proteins',
+        currentStock: 0,
+        minStock: 10,
+        maxStock: 100,
+        unit: 'pieces',
+        supplier: '',
+        description: '',
+        allergens: []
+      });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Failed to add item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add inventory item. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const updateItem = () => {
-    if (!editingItem || !draft.name) return;
+  const updateItem = async () => {
+    if (!editingItem || !draft.name) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    inventoryService.updateItem(editingItem.id, draft);
-    setEditingItem(null);
-    setDraft({
-      name: '',
-      category: 'proteins',
-      currentStock: 0,
-      minStock: 10,
-      maxStock: 100,
-      unit: 'pieces',
-      supplier: '',
-      description: '',
-      allergens: []
-    });
+    try {
+      const itemId = editingItem._id || editingItem.id;
+      if (itemId) {
+        await inventoryService.updateItem(itemId, draft);
+        const fetchedItems = await inventoryService.getAllItems();
+        setItems(fetchedItems);
+        toast({
+          title: "Success",
+          description: `${draft.name} has been updated.`,
+        });
+      }
+      setEditingItem(null);
+      setDraft({
+        name: '',
+        category: 'proteins',
+        currentStock: 0,
+        minStock: 10,
+        maxStock: 100,
+        unit: 'pieces',
+        supplier: '',
+        description: '',
+        allergens: []
+      });
+    } catch (error) {
+      console.error('Failed to update item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update inventory item. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const startEdit = (item: InventoryItem) => {
@@ -152,13 +211,51 @@ const InventoryManager: React.FC = () => {
     });
   };
 
-  const updateStock = (id: string, newStock: number) => {
-    inventoryService.updateStock(id, newStock);
+  const updateStock = async (id: string, newStock: number) => {
+    try {
+      await inventoryService.updateStock(id, newStock);
+      const fetchedItems = await inventoryService.getAllItems();
+      setItems(fetchedItems);
+      const item = items.find(i => (i._id || i.id) === id);
+      toast({
+        title: "Success",
+        description: `Stock level for ${item?.name || 'item'} updated to ${newStock} ${item?.unit || 'units'}.`,
+      });
+    } catch (error) {
+      console.error('Failed to update stock:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update stock level. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const deleteItem = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      inventoryService.deleteItem(id);
+    const item = items.find(i => (i._id || i.id) === id);
+    if (!item) return;
+    setDeleteConfirm({ id, name: item.name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await inventoryService.deleteItem(deleteConfirm.id);
+      const fetchedItems = await inventoryService.getAllItems();
+      setItems(fetchedItems);
+      toast({
+        title: "Success",
+        description: `${deleteConfirm.name} has been deleted from inventory.`,
+      });
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete inventory item. Please try again.",
+        variant: "destructive",
+      });
+      setDeleteConfirm(null);
     }
   };
 
@@ -173,6 +270,28 @@ const InventoryManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-2">Delete Inventory Item</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to delete <strong>{deleteConfirm.name}</strong> from inventory? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={confirmDelete}>
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
@@ -394,8 +513,15 @@ const InventoryManager: React.FC = () => {
 
       {/* Inventory Items */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredItems.map((item) => (
-          <Card key={item.id} className="hover:shadow-lg transition-shadow">
+        {loading ? (
+          <>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <InventoryItemSkeleton key={i} />
+            ))}
+          </>
+        ) : (
+          filteredItems.map((item) => (
+          <Card key={item._id || item.id} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
@@ -461,14 +587,14 @@ const InventoryManager: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => updateStock(item.id, item.currentStock + 10)}
+                      onClick={() => updateStock(item._id || item.id || '', item.currentStock + 10)}
                     >
                       +10
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => updateStock(item.id, item.currentStock + 50)}
+                      onClick={() => updateStock(item._id || item.id || '', item.currentStock + 50)}
                     >
                       +50
                     </Button>
@@ -484,7 +610,7 @@ const InventoryManager: React.FC = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => deleteItem(item.id)}
+                      onClick={() => deleteItem(item._id || item.id || '')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -493,10 +619,11 @@ const InventoryManager: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </div>
 
-      {filteredItems.length === 0 && (
+      {!loading && filteredItems.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center">
             <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />

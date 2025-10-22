@@ -103,8 +103,8 @@ const Cart = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-              {items.map((item) => (
-                <CartItem key={item.id} item={item} />
+              {items.map((item, index) => (
+                <CartItem key={item.id || `cart-item-${index}`} item={item} />
               ))}
             </div>
 

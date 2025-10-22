@@ -55,8 +55,9 @@ const Dashboard: React.FC<DashboardProps> = ({ adminStats }) => {
     }
   ];
 
-  const recentOrders = adminStats?.recentOrders.map(order => ({
-    id: `#${order.id}`,
+  const recentOrders = adminStats?.recentOrders.map((order, index) => ({
+    id: order._id || order.id || `order-${index}`,
+    displayId: `#${order._id || order.id || index + 1}`,
     customer: order.customerInfo.name,
     items: order.items.length,
     status: order.status,
@@ -123,7 +124,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminStats }) => {
               {recentOrders.map((order) => (
                 <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{order.id}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{order.displayId}</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{order.customer}</p>
                     <p className="text-xs text-gray-500">{order.items} items</p>
                   </div>

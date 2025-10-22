@@ -64,8 +64,7 @@ class AuthService {
 
   subscribe(callback: (state: AuthState) => void) {
     this.callbacks.push(callback);
-    // Immediately call with current state
-    callback(this.authState);
+    // Don't call immediately to avoid hook issues
     return () => {
       this.callbacks = this.callbacks.filter(cb => cb !== callback);
     };

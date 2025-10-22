@@ -10,11 +10,13 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { OrderCardSkeleton } from '@/components/ui/skeletons';
 
 type OrderStatusType = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered';
 
 const OrderKanban: React.FC = () => {
   const [orders, setOrders] = useState<OrderStatus[]>([]);
+  const [loading, setLoading] = useState(true);
   const [draggedOrder, setDraggedOrder] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<OrderStatus | null>(null);
   const [editForm, setEditForm] = useState({
@@ -40,8 +42,15 @@ const OrderKanban: React.FC = () => {
   ];
 
   const loadOrders = async () => {
-    const fetchedOrders = await orderManagementService.getOrders();
-    setOrders(fetchedOrders.slice().reverse());
+    setLoading(true);
+    try {
+      const fetchedOrders = await orderManagementService.getOrders();
+      setOrders(fetchedOrders.slice().reverse());
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const printAllNewOrders = () => {
@@ -393,23 +402,39 @@ const OrderKanban: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 overflow-x-auto">
-        {columns.map((column) => {
-          const columnOrders = getOrdersByStatus(column.id as OrderStatusType);
-          
-          return (
-            <div key={column.id} className="space-y-2 sm:space-y-3 min-w-[280px] sm:min-w-0">
+        {loading ? (
+          // Loading skeleton for all columns
+          Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="space-y-2 sm:space-y-3 min-w-[280px] sm:min-w-0">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{column.title}</h3>
-                <Badge className={`${column.color} ${column.textColor} text-xs sm:text-sm`}>
-                  {columnOrders.length}
-                </Badge>
+                <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                <div className="h-5 w-8 bg-gray-200 rounded animate-pulse" />
               </div>
-              
-              <div
-                className="min-h-[300px] sm:min-h-[400px] space-y-2 sm:space-y-3 p-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg"
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, column.id as OrderStatusType)}
-              >
+              <div className="min-h-[300px] sm:min-h-[400px] space-y-2 sm:space-y-3 p-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <OrderCardSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          columns.map((column) => {
+            const columnOrders = getOrdersByStatus(column.id as OrderStatusType);
+            
+            return (
+              <div key={column.id} className="space-y-2 sm:space-y-3 min-w-[280px] sm:min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{column.title}</h3>
+                  <Badge className={`${column.color} ${column.textColor} text-xs sm:text-sm`}>
+                    {columnOrders.length}
+                  </Badge>
+                </div>
+                
+                <div
+                  className="min-h-[300px] sm:min-h-[400px] space-y-2 sm:space-y-3 p-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, column.id as OrderStatusType)}
+                >
                 {columnOrders.map((order) => {
                   const orderId = order._id || order.id || '';
                   const displayId = orderId.slice(-8);
@@ -489,7 +514,8 @@ const OrderKanban: React.FC = () => {
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* Edit Order Modal */}

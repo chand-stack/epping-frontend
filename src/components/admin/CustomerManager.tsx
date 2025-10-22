@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { apiClient } from '@/config/api';
+import { CustomerCardSkeleton } from '@/components/ui/skeletons';
 import { 
   Users, 
   Search, 
@@ -17,9 +19,8 @@ import {
 } from 'lucide-react';
 
 interface Customer {
-  id: string;
-  name: string;
   email: string;
+  name: string;
   phone: string;
   address: string;
   totalOrders: number;
@@ -27,91 +28,31 @@ interface Customer {
   lastOrder: string;
   joinDate: string;
   status: 'active' | 'inactive' | 'vip';
-  favoriteItems: string[];
+  favoriteItems: Array<{ name: string; count: number }>;
   averageOrderValue: number;
 }
 
 const CustomerManager: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'vip'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'totalSpent' | 'lastOrder' | 'totalOrders'>('name');
 
+  const loadCustomers = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.get('/customers');
+      setCustomers(response.data.data);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // Load sample customer data
-    const sampleCustomers: Customer[] = [
-      {
-        id: '1',
-        name: 'Sarah Johnson',
-        email: 'sarah.johnson@email.com',
-        phone: '07912 345678',
-        address: '123 High Street, Epping, CM16 4BA',
-        totalOrders: 15,
-        totalSpent: 245.50,
-        lastOrder: '2024-01-15',
-        joinDate: '2023-06-10',
-        status: 'vip',
-        favoriteItems: ['Smash Burger', 'Chicken Wings'],
-        averageOrderValue: 16.37,
-      },
-      {
-        id: '2',
-        name: 'Mike Chen',
-        email: 'mike.chen@email.com',
-        phone: '07923 456789',
-        address: '45 Station Road, Epping, CM16 4BB',
-        totalOrders: 8,
-        totalSpent: 128.75,
-        lastOrder: '2024-01-14',
-        joinDate: '2023-08-22',
-        status: 'active',
-        favoriteItems: ['Butter Chicken', 'Garlic Naan'],
-        averageOrderValue: 16.09,
-      },
-      {
-        id: '3',
-        name: 'Emma Wilson',
-        email: 'emma.wilson@email.com',
-        phone: '07934 567890',
-        address: '78 Church Lane, Epping, CM16 4BC',
-        totalOrders: 3,
-        totalSpent: 45.20,
-        lastOrder: '2024-01-05',
-        joinDate: '2023-12-01',
-        status: 'active',
-        favoriteItems: ['Crispy Fries'],
-        averageOrderValue: 15.07,
-      },
-      {
-        id: '4',
-        name: 'David Brown',
-        email: 'david.brown@email.com',
-        phone: '07945 678901',
-        address: '12 Market Square, Epping, CM16 4BD',
-        totalOrders: 22,
-        totalSpent: 387.90,
-        lastOrder: '2024-01-16',
-        joinDate: '2023-03-15',
-        status: 'vip',
-        favoriteItems: ['Bacon Smash Burger', 'Buffalo Wings', 'Dal Tadka'],
-        averageOrderValue: 17.63,
-      },
-      {
-        id: '5',
-        name: 'Lisa Thompson',
-        email: 'lisa.thompson@email.com',
-        phone: '07956 789012',
-        address: '56 Victoria Road, Epping, CM16 4BE',
-        totalOrders: 1,
-        totalSpent: 18.50,
-        lastOrder: '2023-11-20',
-        joinDate: '2023-11-15',
-        status: 'inactive',
-        favoriteItems: ['Smash Burger'],
-        averageOrderValue: 18.50,
-      },
-    ];
-    setCustomers(sampleCustomers);
+    loadCustomers();
   }, []);
 
   const getStatusColor = (status: Customer['status']) => {
@@ -274,10 +215,19 @@ const CustomerManager: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Customer List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredAndSortedCustomers.map((customer) => (
-          <Card key={customer.id} className="hover:shadow-lg transition-shadow">
+      {/* Loading State */}
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <CustomerCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <>
+          {/* Customer List */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredAndSortedCustomers.map((customer) => (
+              <Card key={customer.email} className="hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -329,13 +279,13 @@ const CustomerManager: React.FC = () => {
                 </div>
               </div>
 
-              {customer.favoriteItems.length > 0 && (
+              {customer.favoriteItems && customer.favoriteItems.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Favorite Items:</p>
                   <div className="flex flex-wrap gap-1">
                     {customer.favoriteItems.slice(0, 3).map((item, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
-                        {item}
+                        {typeof item === 'string' ? item : `${item.name} (${item.count}x)`}
                       </Badge>
                     ))}
                     {customer.favoriteItems.length > 3 && (
@@ -348,26 +298,42 @@ const CustomerManager: React.FC = () => {
               )}
 
               <div className="flex space-x-2 mt-4">
-                <Button size="sm" variant="outline" className="flex-1">
-                  <Mail className="h-4 w-4 mr-1" />
-                  Email
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex-1"
+                  asChild
+                >
+                  <a href={`mailto:${customer.email}`} target="_blank" rel="noopener noreferrer">
+                    <Mail className="h-4 w-4 mr-1" />
+                    Email
+                  </a>
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1">
-                  <Phone className="h-4 w-4 mr-1" />
-                  Call
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="flex-1"
+                  asChild
+                >
+                  <a href={`tel:${customer.phone}`}>
+                    <Phone className="h-4 w-4 mr-1" />
+                    Call
+                  </a>
                 </Button>
               </div>
             </CardContent>
           </Card>
         ))}
-      </div>
+          </div>
 
-      {filteredAndSortedCustomers.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">No customers found</p>
-          </CardContent>
-        </Card>
+          {filteredAndSortedCustomers.length === 0 && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-gray-500 dark:text-gray-400">No customers found</p>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

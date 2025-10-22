@@ -40,9 +40,9 @@ class MenuService {
     }
   }
 
-  // Get all menu items (returns cached or fetches)
-  getAll(): MenuItemRecord[] {
-    return this.cachedItems || [];
+  // Get all menu items (fetches from backend)
+  async getAll(): Promise<MenuItemRecord[]> {
+    return this.fetchAll();
   }
 
   // Get menu items by restaurant
@@ -154,8 +154,8 @@ class MenuService {
   }
 
   // Search menu items
-  search(query: string): MenuItemRecord[] {
-    const items = this.getAll();
+  async search(query: string): Promise<MenuItemRecord[]> {
+    const items = await this.getAll();
     const lowercaseQuery = query.toLowerCase();
     return items.filter(item => 
       item.name.toLowerCase().includes(lowercaseQuery) ||
@@ -176,7 +176,7 @@ class MenuService {
       }
     }
     
-    const items = this.getAll();
+    const items = await this.getAll();
     const categories = new Set(items.map(item => item.category));
     return Array.from(categories).sort();
   }

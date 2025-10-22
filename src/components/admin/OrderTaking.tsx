@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { menuService, MenuItemRecord } from '@/services/menuService';
 import { adminService } from '@/services/adminService';
 import { useCart } from '@/contexts/SimpleCartContext';
+import { OrderTakingMenuSkeleton } from '@/components/ui/skeletons';
 import { 
   Plus, 
   Minus, 
@@ -47,22 +48,38 @@ const OrderTaking: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'online'>('cash');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const { addItem, clearCart } = useCart();
 
   useEffect(() => {
-    const load = () => {
-      const items = menuService.getAll().filter(item => item.inStock);
-      setMenuItems(items);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const items = await menuService.getAll();
+        const inStockItems = items.filter(item => item.inStock);
+        setMenuItems(inStockItems);
+      } catch (error) {
+        console.error('Error loading menu items:', error);
+        setMenuItems([]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
     const unsub = menuService.subscribe(load);
     return () => unsub();
   }, []);
 
-  const loadMenuItems = () => {
-    const items = menuService.getAll().filter(item => item.inStock);
-    setMenuItems(items);
+  const loadMenuItems = async () => {
+    try {
+      const items = await menuService.getAll();
+      const inStockItems = items.filter(item => item.inStock);
+      setMenuItems(inStockItems);
+    } catch (error) {
+      console.error('Error loading menu items:', error);
+      setMenuItems([]);
+    }
   };
 
   const categories = ['All', ...new Set(menuItems.map(item => item.category))];
@@ -237,8 +254,11 @@ const OrderTaking: React.FC = () => {
 
           {/* Menu Items Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {filteredItems.map((item) => (
-              <Card key={item.id} className="hover:shadow-md transition-shadow">
+            {loading ? (
+              <OrderTakingMenuSkeleton />
+            ) : (
+              filteredItems.map((item, index) => (
+              <Card key={item.id || item._id || `menu-item-${index}`} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -269,7 +289,8 @@ const OrderTaking: React.FC = () => {
                   </Button>
                 </CardContent>
               </Card>
-            ))}
+            ))
+            )}
           </div>
         </div>
 
@@ -387,8 +408,8 @@ const OrderTaking: React.FC = () => {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {orderItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                  {orderItems.map((item, index) => (
+                    <div key={item.id || `order-item-${index}`} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
                       <div className="flex-1">
                         <p className="font-medium text-sm">{item.name}</p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">£{item.price.toFixed(2)} each</p>

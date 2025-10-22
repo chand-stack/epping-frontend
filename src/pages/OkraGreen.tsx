@@ -7,9 +7,11 @@ import { ArrowRight, MapPin, Clock, Star, ChefHat, Award, Heart, Utensils, Coffe
 import { MenuLayout, MenuCategoryData } from '@/components/menu/MenuLayout';
 import { menuService } from '@/services/menuService';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { FrontendMenuSkeleton } from '@/components/ui/skeletons';
 
 const OkraGreen = () => {
   const [menuData, setMenuData] = useState<MenuCategoryData[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const groupIntoCategories = useCallback((items: any[]): MenuCategoryData[] => {
     const byCat: Record<string, { name: string; items: { id: string; name: string; price: string; description: string; veg?: boolean }[] }> = {};
@@ -28,11 +30,14 @@ const OkraGreen = () => {
   }, []);
 
   const loadMenu = useCallback(async () => {
+    setLoading(true);
     try {
       const okraGreenItems = await menuService.getByRestaurant('Okra Green');
       setMenuData(groupIntoCategories(okraGreenItems));
     } catch (error) {
       console.error('Error loading menu:', error);
+    } finally {
+      setLoading(false);
     }
   }, [groupIntoCategories]);
 
@@ -140,7 +145,11 @@ const OkraGreen = () => {
 
       {/* Complete Menu - Foodhub-style layout */}
       <section className="pt-4 sm:pt-6 pb-8 sm:pb-12 bg-secondary">
-        <MenuLayout brand="Okra Green" categories={menuData} />
+        {loading ? (
+          <FrontendMenuSkeleton />
+        ) : (
+          <MenuLayout brand="Okra Green" categories={menuData} />
+        )}
       </section>
 
       {/* Opening Hours - moved below menu */}

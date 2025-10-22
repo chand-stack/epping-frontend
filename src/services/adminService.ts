@@ -150,7 +150,7 @@ class AdminService {
       .slice(0, 5);
     
     // Get low stock items count from inventory service
-    const lowStockItems = inventoryService.getLowStockItemsCount();
+    const lowStockItems = await inventoryService.getLowStockItemsCount();
     
     // Calculate active customers (customers with orders in last 30 days)
     const thirtyDaysAgo = new Date();

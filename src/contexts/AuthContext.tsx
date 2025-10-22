@@ -37,10 +37,13 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>({
-    isAuthenticated: false,
-    user: null,
-    token: null
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    // Initialize with current auth state from service
+    return {
+      isAuthenticated: authService.isAuthenticated(),
+      user: authService.getCurrentUser(),
+      token: authService.getToken()
+    };
   });
 
   useEffect(() => {

@@ -1,123 +1,66 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { OpeningHours } from '@/components/ui/OpeningHours';
 import { CombinedMenuTabs } from '@/components/menu/CombinedMenuTabs';
 import { type MenuCategoryData } from '@/components/menu/MenuLayout';
 import { menuService, type MenuItemRecord } from '@/services/menuService';
-import { ArrowRight, Clock, MapPin, Phone, Star, ShoppingCart, Truck, Store } from 'lucide-react';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Clock, MapPin, Phone, ShoppingCart, Truck, Store } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { FrontendMenuSkeleton } from '@/components/ui/skeletons';
 
 const OrderOnline = () => {
-  const navigate = useNavigate();
-  const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null);
-  const [orderType, setOrderType] = useState<'delivery' | 'pickup' | null>(null);
-
-  const handleDeliveryClick = (restaurantName: string) => {
-    setSelectedRestaurant(restaurantName);
-    setOrderType('delivery');
-    // Navigate to restaurant menu for delivery orders
-    const restaurantPaths = {
-      'OhSmash': '/ohsmash',
-      'Wonder Wings': '/wonder-wings',
-      'Okra Green': '/okra-green'
-    };
-    navigate(restaurantPaths[restaurantName as keyof typeof restaurantPaths]);
-  };
-
-  const handlePickupClick = (restaurantName: string) => {
-    setSelectedRestaurant(restaurantName);
-    setOrderType('pickup');
-    // Navigate to restaurant menu for pickup orders
-    const restaurantPaths = {
-      'OhSmash': '/ohsmash',
-      'Wonder Wings': '/wonder-wings',
-      'Okra Green': '/okra-green'
-    };
-    navigate(restaurantPaths[restaurantName as keyof typeof restaurantPaths]);
-  };
-
-  const restaurants = [
-    {
-      name: "OhSmash",
-      description: "Smash burgers packed with flavor",
-      logo: "/assets/ohsmash-logo-7DcpAiJi.png",
-      heroImage: "/assets/ohsmash-hero-CefO7dZ9.jpg",
-      href: "/ohsmash",
-      tagline: "Bold. Fresh. Smashed.",
-      rating: 4.9,
-      reviews: 500,
-      hours: "Mon-Fri: 5-9:45pm, Sat-Sun: 4:30-10:45pm",
-      phone: "01992 279414",
-      deliveryLink: "#",
-      pickupLink: "#",
-      specialties: ["Smash Burgers", "Beefy Burgers", "Crispy Chicken", "Hand-cut Fries"],
-      color: "ohsmash"
-    },
-    {
-      name: "Wonder Wings",
-      description: "Taste that takes off with every wing",
-      logo: "/assets/wonder-wings-logo-D7hel9si.png",
-      heroImage: "/assets/wings-hero-1.jpg",
-      href: "/wonder-wings",
-      tagline: "Crispy. Saucy. Perfect.",
-      rating: 4.8,
-      reviews: 320,
-      hours: "Mon-Thu: 3pm-10pm, Fri-Sat: 3pm-11pm, Sun: 3pm-10pm",
-      phone: "01992 279414",
-      deliveryLink: "#",
-      pickupLink: "#",
-      specialties: ["Buffalo Wings", "BBQ Wings", "Honey Garlic", "Crispy Fries"],
-      color: "wonder-wings"
-    },
-    {
-      name: "Okra Green",
-      description: "Authentic Indian flavors made fresh",
-      logo: "/assets/okra-green-logo-DjbZ1NEW.png",
-      heroImage: "/assets/okra-green-hero-DB3dLVkO.jpg",
-      href: "/okra-green",
-      tagline: "Authentic. Spiced. Delicious.",
-      rating: 4.7,
-      reviews: 280,
-      hours: "Mon: 5pm-10pm, Tue: Closed, Wed-Thu: 5pm-10pm, Fri-Sat: 5pm-11pm, Sun: 5pm-10pm",
-      phone: "01992 279414",
-      deliveryLink: "#",
-      pickupLink: "#",
-      specialties: ["Curry Bowls", "Biryani", "Tandoori", "Naan Bread"],
-      color: "okra-green"
-    }
-  ];
-
-  // Dynamic menus pulled from menuService
+  // Dynamic menus pulled from backend API
   const [ohSmashMenu, setOhSmashMenu] = useState<MenuCategoryData[]>([]);
   const [wonderWingsMenu, setWonderWingsMenu] = useState<MenuCategoryData[]>([]);
   const [okraGreenMenu, setOkraGreenMenu] = useState<MenuCategoryData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const groupIntoCategories = useCallback((items: MenuItemRecord[]): MenuCategoryData[] => {
-    const byCat: Record<string, { name: string; items: { name: string; price: string; description: string; veg?: boolean }[] }> = {};
+    const byCat: Record<string, { name: string; items: { name: string; price: string; description: string; veg?: boolean; id?: string }[] }> = {};
     items.forEach((i) => {
       const cat = i.category || 'General';
       if (!byCat[cat]) byCat[cat] = { name: cat, items: [] };
-      byCat[cat].items.push({ name: i.name, price: i.price.toFixed(2), description: i.description || '', veg: i.veg });
+      byCat[cat].items.push({ 
+        id: i._id || i.id,
+        name: i.name, 
+        price: i.price.toFixed(2), 
+        description: i.description || '', 
+        veg: i.veg 
+      });
     });
     return Object.values(byCat);
   }, []);
 
-  // Memoize the load function to prevent unnecessary re-renders
-  const loadMenus = useCallback(() => {
-    const all = menuService.getAll();
-    const oh = all.filter(i => i.restaurant === 'OhSmash');
-    const ww = all.filter(i => i.restaurant === 'Wonder Wings');
-    const og = all.filter(i => i.restaurant === 'Okra Green');
-    setOhSmashMenu(groupIntoCategories(oh));
-    setWonderWingsMenu(groupIntoCategories(ww));
-    setOkraGreenMenu(groupIntoCategories(og));
-  }, []);
+  // Load menus from backend API
+  const loadMenus = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Fetching menus from backend...');
+      const all = await menuService.getAll();
+      console.log('Menus fetched:', all.length, 'items');
+      
+      const oh = all.filter(i => i.restaurant === 'OhSmash');
+      const ww = all.filter(i => i.restaurant === 'Wonder Wings');
+      const og = all.filter(i => i.restaurant === 'Okra Green');
+      
+      console.log('OhSmash:', oh.length, 'Wonder Wings:', ww.length, 'Okra Green:', og.length);
+      
+      setOhSmashMenu(groupIntoCategories(oh));
+      setWonderWingsMenu(groupIntoCategories(ww));
+      setOkraGreenMenu(groupIntoCategories(og));
+    } catch (error) {
+      console.error('Failed to load menus:', error);
+      setError('Failed to load menus. Please make sure the backend server is running.');
+    } finally {
+      setLoading(false);
+    }
+  }, [groupIntoCategories]);
 
   useEffect(() => {
     loadMenus();
-    const unsub = menuService.subscribe(loadMenus);
-    return () => unsub();
   }, [loadMenus]);
 
   const allMenuRef = useRef<HTMLDivElement>(null);
@@ -150,8 +93,20 @@ const OrderOnline = () => {
             <p className="text-muted-foreground">Switch between our three amazing restaurants</p>
           </div>
           
-          {ohSmashMenu.length + wonderWingsMenu.length + okraGreenMenu.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">Loading menu...</div>
+          {loading ? (
+            <FrontendMenuSkeleton />
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-600 mb-4">{error}</p>
+              <Button onClick={loadMenus} variant="outline">
+                Retry
+              </Button>
+            </div>
+          ) : ohSmashMenu.length + wonderWingsMenu.length + okraGreenMenu.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No menu items found.</p>
+              <p className="text-sm text-gray-500">Please add menu items from the admin dashboard.</p>
+            </div>
           ) : (
             <CombinedMenuTabs 
               ohSmashMenu={ohSmashMenu}

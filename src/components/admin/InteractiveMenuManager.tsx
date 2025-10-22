@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { menuService, MenuItemRecord } from '@/services/menuService';
+import { MenuItemSkeleton } from '@/components/ui/skeletons';
 import { 
   Plus, 
   Search, 
@@ -541,8 +542,13 @@ const InteractiveMenuManager: React.FC = () => {
 
       {/* Loading State */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className={viewMode === 'grid' 
+          ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+          : 'space-y-2'
+        }>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <MenuItemSkeleton key={i} />
+          ))}
         </div>
       ) : filteredItems.length === 0 ? (
         <Card>
