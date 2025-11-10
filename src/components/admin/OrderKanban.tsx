@@ -67,7 +67,7 @@ const OrderKanban: React.FC = () => {
     });
   };
 
-  const openEditModal = (order: OrderStatus) => {
+  const openEditModal = async (order: OrderStatus) => {
     setEditingOrder(order);
     setEditForm({
       customerName: order.customerInfo.name,
@@ -85,8 +85,9 @@ const OrderKanban: React.FC = () => {
     });
     
     // Load available menu items
-    const allItems = menuService.getAll().filter(item => item.inStock);
-    setAvailableMenuItems(allItems.map(item => ({
+    const allItems = await menuService.getAll();
+    const inStockItems = allItems.filter(item => item.inStock);
+    setAvailableMenuItems(inStockItems.map(item => ({
       name: item.name,
       price: item.price,
       brand: item.restaurant,

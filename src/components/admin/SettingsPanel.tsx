@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/Label';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import { apiClient } from '@/config/api';
 import { toast } from 'sonner';
 import { 
